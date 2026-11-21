@@ -1,0 +1,1 @@
+First release: text to Morse sound, flashlight and vibration; decoder with tap key; Morse chart.

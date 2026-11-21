@@ -1,0 +1,23 @@
+Dit Dah turns anything you type into International Morse Code, and plays it as clean beeps, flashlight blinks or vibrations.
+
+<b>Send</b>
+• Type a message and hear it in Morse, with each letter highlighted as it plays
+• Play through the speaker, the flashlight, vibration, or all three at once
+• Adjust speed from 5 to 40 words per minute and tone from 400 to 1000 Hz
+• Learning mode (Farnsworth spacing): full-speed letters with extra space between them
+• Share the written Morse code to any app, or share text from any app into Dit Dah
+
+<b>Decode</b>
+• Type or paste dots and dashes and see the text instantly
+• Practise with the on-screen tap key: short press for a dot, hold for a dash
+
+<b>Chart</b>
+• All letters, numbers and punctuation in the International (ITU) standard
+• Tap any character to hear it
+
+<b>Private by design</b>
+• Works completely offline
+• No ads, no accounts, no tracking
+• Collects no personal data
+
+Dit Dah is free and open source.

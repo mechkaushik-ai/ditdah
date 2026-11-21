@@ -1,0 +1,101 @@
+# Builds Dit Dah on GitHub's free servers. You never need to install anything.
+#
+# - Every time you change the code, it runs the tests and builds an APK you can
+#   install on your phone (find it under Actions > latest run > Artifacts).
+# - If you've added your signing key as repository secrets, it also builds the
+#   signed release APK and the .aab file that Google Play needs.
+# - When you publish a Release on GitHub, the signed APK is attached to it
+#   automatically (this is what IzzyOnDroid and your users download).
+
+name: Build app
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make the build script runnable
+        run: chmod +x ./gradlew
+
+      - name: Run the Morse code tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build test APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Save test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DitDah-test-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Publish test APK at a fixed download link
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk DitDah-test.apk
+          gh release delete test-build --yes --cleanup-tag 2>/dev/null || true
+          gh release create test-build DitDah-test.apk --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Latest test build" \
+            --notes "Built automatically from the latest code. Download DitDah-test.apk on your phone and tap it to install."
+          echo "Phone download link: https://github.com/${GITHUB_REPOSITORY}/releases/download/test-build/DitDah-test.apk"
+
+      - name: Build signed release (only if your key is set up)
+        id: release
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          DITDAH_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          DITDAH_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          DITDAH_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No signing key in repository secrets yet, so skipping the release build."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.jks"
+          export DITDAH_KEYSTORE="$RUNNER_TEMP/upload-keystore.jks"
+          ./gradlew assembleRelease bundleRelease --stacktrace
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk "out/DitDah-$VERSION.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "out/DitDah-$VERSION.aab"
+          rm -f "$RUNNER_TEMP/upload-keystore.jks"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Save signed release files
+        if: steps.release.outputs.signed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DitDah-release
+          path: out/*
+
+      - name: Attach APK to the GitHub Release
+        if: github.event_name == 'release' && steps.release.outputs.signed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" out/*.apk --clobber

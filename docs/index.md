@@ -4,7 +4,7 @@ title: Dit Dah — Privacy Policy
 
 # Dit Dah — Privacy Policy
 
-*Last updated: 21 November 2026*
+*Last updated: 23 November 2026*
 
 Dit Dah is a Morse code app made by Kaushik Chandrasekar, an individual developer in Bangalore, India.
 
@@ -18,6 +18,7 @@ Dit Dah is a Morse code app made by Kaushik Chandrasekar, an individual develope
 - **Your messages stay on your phone.** Text you type and Morse code you enter are processed only on your device to play sound, flash the light or vibrate. They are never sent anywhere.
 - **No internet access.** The app does not request internet permission and works fully offline.
 - **No ads, analytics, or tracking.** The app contains no advertising, analytics, or crash-reporting services.
+- **Microphone.** If you tap "Start listening" on the Decode screen, the app asks for microphone permission and listens for Morse tones. The sound is analysed on your phone as it arrives and then discarded. It is never recorded, saved, or sent anywhere, and listening stops when you tap "Stop listening" or leave the app.
 - **Permissions.** The app uses vibration (to vibrate Morse code) and the camera flashlight (to blink Morse code). It does not take photos or use the camera to record anything. Both are optional and used only when you switch them on.
 - **Sharing.** If you tap "Share", Android's share menu sends the Morse code to the app *you* choose. Dit Dah itself sends nothing.
 - **Children.** The app collects no data from anyone, including children.

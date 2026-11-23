@@ -9,7 +9,9 @@ Dit Dah turns anything you type into International Morse Code, and plays it as c
 
 <b>Decode</b>
 • Type or paste dots and dashes and see the text instantly
-• Practise with the on-screen tap key: short press for a dot, hold for a dash
+• Listen through the microphone and decode Morse tones live, with automatic speed tracking
+• Practise with the on-screen tap key: hear each dot and dash as you key it
+• Speed, tone and volume controls on every screen
 
 <b>Chart</b>
 • All letters, numbers and punctuation in the International (ITU) standard

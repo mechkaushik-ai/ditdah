@@ -3,7 +3,7 @@
 An Android app that turns text into International Morse Code you can **hear**, **see** (flashlight) and **feel** (vibration), and decodes Morse back into text.
 
 - **Send:** type a message and play it as beeps, flashes and/or vibration, with each letter highlighted as it plays. Speed 5–40 WPM, tone 400–1000 Hz, optional Farnsworth spacing for learners.
-- **Decode:** type dots and dashes, or use the on-screen tap key.
+- **Decode:** type dots and dashes, use the on-screen tap key (with live beep), or decode Morse tones heard through the microphone.
 - **Chart:** every ITU Morse character; tap to hear it.
 - Offline, no ads, no tracking, no data collected.
 
@@ -27,6 +27,8 @@ To build on your own computer, open the folder in Android Studio and press **Run
 |---|---|
 | `app/src/main/java/com/kaushikc/ditdah/MorseCode.kt` | Morse table, encoding, decoding, PARIS and Farnsworth timing |
 | `app/src/main/java/com/kaushikc/ditdah/MorsePlayer.kt` | Sound (generated sine tone), flashlight and vibration, kept in sync |
+| `app/src/main/java/com/kaushikc/ditdah/MorseListening.kt` | Microphone tone detector and adaptive Morse timing decoder |
+| `app/src/main/java/com/kaushikc/ditdah/AudioIO.kt` | Live tap-key beep (sidetone) and microphone listener |
 | `app/src/main/java/com/kaushikc/ditdah/MainActivity.kt` | App start-up, navigation, playback control |
 | `app/src/main/java/com/kaushikc/ditdah/Screens.kt` | Send, Decode and Chart screens |
 | `app/src/test/.../MorseCodeTest.kt` | Automatic tests for the Morse logic |

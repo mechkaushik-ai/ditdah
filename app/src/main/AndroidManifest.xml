@@ -4,6 +4,14 @@
     <!-- Needed only for the optional vibration output. Granted automatically. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Needed only for "Listen" on the Decode screen. Asked for when first used.
+         Audio is analysed on the phone as it arrives and is never recorded or stored. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
     <!-- The flashlight is optional: the app still installs on phones without one. -->
     <uses-feature
         android:name="android.hardware.camera.flash"

@@ -1,0 +1,1 @@
+Decode Morse through the microphone. Hear dots and dashes as you tap the key. Speed, tone and volume controls on the Decode screen.

@@ -61,6 +61,7 @@ class MorsePlayer(context: Context) {
     suspend fun play(
         segments: List<Segment>,
         frequencyHz: Int,
+        volume: Float,
         sound: Boolean,
         flash: Boolean,
         vibrate: Boolean,
@@ -82,7 +83,7 @@ class MorsePlayer(context: Context) {
 
         try {
             if (sound) {
-                val pcm = buildPcm(segments, frequencyHz)
+                val pcm = buildPcm(segments, frequencyHz, volume)
                 if (pcm.isNotEmpty()) {
                     track = AudioTrack.Builder()
                         .setAudioAttributes(
@@ -177,7 +178,7 @@ class MorsePlayer(context: Context) {
     }
 
     /** The whole message as one block of 16-bit audio samples. */
-    private fun buildPcm(segments: List<Segment>, frequencyHz: Int): ShortArray {
+    private fun buildPcm(segments: List<Segment>, frequencyHz: Int, volume: Float): ShortArray {
         val counts = IntArray(segments.size)
         var elapsed = 0.0
         var previousEnd = 0
@@ -201,7 +202,7 @@ class MorsePlayer(context: Context) {
                         j >= n - ramp -> (n - 1 - j).toDouble() / ramp
                         else -> 1.0
                     }
-                    val sample = sin(2 * PI * frequencyHz * j / SAMPLE_RATE) * envelope * AMPLITUDE
+                    val sample = sin(2 * PI * frequencyHz * j / SAMPLE_RATE) * envelope * AMPLITUDE * volume
                     out[pos + j] = (sample * Short.MAX_VALUE).toInt().toShort()
                 }
             }

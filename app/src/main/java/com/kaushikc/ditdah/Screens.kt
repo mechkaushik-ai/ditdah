@@ -1,6 +1,10 @@
 package com.kaushikc.ditdah
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +39,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -58,6 +63,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -216,6 +226,8 @@ fun PlaybackControls(
     onSpacingChange: (Int) -> Unit,
     pitch: Int,
     onPitchChange: (Int) -> Unit,
+    volume: Int,
+    onVolumeChange: (Int) -> Unit,
     sound: Boolean,
     onSoundChange: (Boolean) -> Unit,
     flash: Boolean,
@@ -284,6 +296,14 @@ fun PlaybackControls(
                 valueRange = 400f..1000f,
                 steps = 59
             )
+
+            Text("Volume: $volume%", style = MaterialTheme.typography.labelLarge)
+            Slider(
+                value = volume.toFloat(),
+                onValueChange = { onVolumeChange((it / 5f).roundToInt() * 5) },
+                valueRange = 10f..100f,
+                steps = 17
+            )
         }
     }
 }
@@ -295,17 +315,22 @@ fun DecodeScreen(
     morse: String,
     onMorseChange: (String) -> Unit,
     wpm: Int,
+    pitch: Int,
+    volume: Int,
     isPlaying: Boolean,
     onPlay: (String) -> Unit,
     onStop: () -> Unit,
+    controls: @Composable () -> Unit,
 ) {
+    val context = LocalContext.current
     val decoded = remember(morse) { MorseCode.decode(morse) }
     val scope = rememberCoroutineScope()
 
-    // The tap key's gesture handler lives longer than one screen update, so it
-    // must always read the latest text rather than a stale copy.
+    // The tap key and microphone run longer than one screen update, so they
+    // must always read the latest text and settings rather than stale copies.
     val currentMorse by rememberUpdatedState(morse)
     val currentOnChange by rememberUpdatedState(onMorseChange)
+    val currentWpm by rememberUpdatedState(wpm)
 
     fun appendSymbol(symbol: Char) = currentOnChange((currentMorse + symbol).take(MAX_MORSE))
     fun letterGap() {
@@ -316,10 +341,72 @@ fun DecodeScreen(
         val m = currentMorse.trimEnd()
         if (m.isNotEmpty() && !m.endsWith("/")) currentOnChange("$m / ")
     }
+    /** Adds decoded microphone text, keeping one space between letters. */
+    fun appendHeard(text: String) {
+        val m = currentMorse
+        val joined = when {
+            text == "/ " -> if (m.isBlank() || m.trimEnd().endsWith("/")) m else m.trimEnd() + " / "
+            m.isEmpty() || m.endsWith(" ") -> m + text
+            else -> "$m $text"
+        }
+        currentOnChange(joined.take(MAX_MORSE))
+    }
+
+    // Instant beep while the tap key is held.
+    val sidetone = remember { Sidetone() }
+    sidetone.frequencyHz = pitch
+    sidetone.volume = volume / 100f
+    // Runs only while this screen is open and the app is in the foreground.
+    LifecycleResumeEffect(Unit) {
+        sidetone.start()
+        onPauseOrDispose { sidetone.stop() }
+    }
 
     var keyDown by remember { mutableStateOf(false) }
     var gapJob by remember { mutableStateOf<Job?>(null) }
     val unit = MorseCode.unitMs(wpm)
+
+    // Microphone decoding.
+    val listener = remember { MicListener() }
+    var listenJob by remember { mutableStateOf<Job?>(null) }
+    var status by remember { mutableStateOf(ListenStatus()) }
+    var micError by remember { mutableStateOf<String?>(null) }
+    val listening = listenJob != null
+
+    fun startListening() {
+        micError = null
+        onStop()
+        val job = scope.launch {
+            try {
+                listener.listen(
+                    startWpm = currentWpm,
+                    onStatus = { status = it },
+                    onText = { text -> scope.launch { appendHeard(text) } },
+                )
+            } catch (e: SecurityException) {
+                micError = "Microphone permission is needed to listen."
+            } catch (e: CancellationException) {
+                throw e // Normal stop, not an error.
+            } catch (e: Exception) {
+                micError = "The microphone is busy or unavailable."
+            }
+        }
+        listenJob = job
+        job.invokeOnCompletion { if (listenJob === job) listenJob = null }
+    }
+
+    fun stopListening() {
+        listenJob?.cancel()
+        listenJob = null
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) startListening() else micError = "Microphone permission was declined."
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { stopListening() }
 
     Column(
         Modifier
@@ -361,7 +448,10 @@ fun DecodeScreen(
                         OutlinedButton(onClick = onStop) { Text("Stop") }
                     } else {
                         OutlinedButton(
-                            onClick = { onPlay(decoded) },
+                            onClick = {
+                                stopListening()
+                                onPlay(decoded)
+                            },
                             enabled = decoded.isNotBlank()
                         ) { Text("Play it back") }
                     }
@@ -373,10 +463,69 @@ fun DecodeScreen(
             }
         }
 
+        // ---- Listen through the microphone
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Listen", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Hold your phone near a Morse sound (400–1000 Hz). Set Speed below close " +
+                        "to the sender's speed; the app then follows it automatically.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (listening) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(16.dp)
+                                .background(
+                                    if (status.toneOn) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outlineVariant,
+                                    CircleShape
+                                )
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            if (status.frequencyHz > 0) {
+                                "Tone ~${status.frequencyHz} Hz   Sender ~${status.wpm} WPM"
+                            } else {
+                                "Listening…"
+                            },
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = { status.level },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                micError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                if (listening) {
+                    Button(
+                        onClick = { stopListening() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) { Text("Stop listening") }
+                } else {
+                    Button(onClick = {
+                        val granted = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (granted) startListening()
+                        else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }) { Text("Start listening") }
+                }
+            }
+        }
+
+        // ---- Tap key
         Text("Tap key", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Press briefly for a dot, hold for a dash. Pause to finish a letter, and pause " +
-                "longer to start a new word. Too fast? Lower the speed on the Send screen.",
+            "Press briefly for a dot, hold for a dash; you'll hear each one as you key it. " +
+                "Pause to finish a letter, and pause longer to start a new word.",
             style = MaterialTheme.typography.bodyMedium
         )
         Box(
@@ -393,8 +542,10 @@ fun DecodeScreen(
                         onPress = {
                             gapJob?.cancel()
                             keyDown = true
+                            sidetone.key(true)
                             val start = System.currentTimeMillis()
                             tryAwaitRelease()
+                            sidetone.key(false)
                             keyDown = false
                             val held = System.currentTimeMillis() - start
                             appendSymbol(if (held < 2 * unit) '.' else '-')
@@ -417,6 +568,9 @@ fun DecodeScreen(
                 else MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
+
+        // ---- Speed, spacing, tone and volume (shared with the Send screen)
+        controls()
     }
 }
 

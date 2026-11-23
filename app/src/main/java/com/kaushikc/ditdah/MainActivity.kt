@@ -79,6 +79,7 @@ fun DitDahApp(initialText: String) {
     var wpm by rememberSaveable { mutableIntStateOf(15) }
     var spacingWpm by rememberSaveable { mutableIntStateOf(15) }
     var pitch by rememberSaveable { mutableIntStateOf(650) }
+    var volume by rememberSaveable { mutableIntStateOf(80) }
     var sound by rememberSaveable { mutableStateOf(true) }
     var flash by rememberSaveable { mutableStateOf(false) }
     var vibrate by rememberSaveable { mutableStateOf(false) }
@@ -100,7 +101,7 @@ fun DitDahApp(initialText: String) {
         if (segments.isEmpty()) return
         isPlaying = true
         val job = scope.launch(Dispatchers.Default) {
-            player.play(segments, pitch, sound, flash, vibrate) { activeChar = it }
+            player.play(segments, pitch, volume / 100f, sound, flash, vibrate) { activeChar = it }
         }
         playJob = job
         job.invokeOnCompletion {
@@ -125,6 +126,8 @@ fun DitDahApp(initialText: String) {
             onSpacingChange = { spacingWpm = it },
             pitch = pitch,
             onPitchChange = { pitch = it },
+            volume = volume,
+            onVolumeChange = { volume = it },
             sound = sound,
             onSoundChange = { sound = it },
             flash = flash,
@@ -183,9 +186,12 @@ fun DitDahApp(initialText: String) {
                     morse = morseInput,
                     onMorseChange = { morseInput = it },
                     wpm = wpm,
+                    pitch = pitch,
+                    volume = volume,
                     isPlaying = isPlaying,
                     onPlay = { play(it) },
                     onStop = { stop() },
+                    controls = controls,
                 )
 
                 Tab.CHART -> ChartScreen(onPlay = { play(it) })
